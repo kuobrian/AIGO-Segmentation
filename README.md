@@ -3,7 +3,7 @@
 This respository aims to train DeepLab v3 in PyTorch which using Mapillary Vistas datasets.
 
 
-![Example image segmentation video](https://github.com/kuobrian/AIGO-Segmentation/blob/master/images/example.gif)
+![Example image segmentation video](https://github.com/kuobrian/AIGO-Segmentation/blob/main/images/example.gif)
 
 ## Usage
 ### Running Inference
