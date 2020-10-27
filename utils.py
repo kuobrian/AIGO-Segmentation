@@ -4,21 +4,24 @@ import torch.nn as nn
 import torch.nn.functional as F
 from dataset import Mapillary_labels
 
-def draw_label(label_imgs):
-    img_height, img_width = label_imgs.shape[1], label_imgs.shape[2]
+def draw_label(img):
+    img_height, img_width = img.shape
 
+    img_color = np.zeros((img_height, img_width, 3), dtype=np.uint8)
+
+    for label in Mapillary_labels:
+        obj_isinstance = label.hasInstanceignoreInEval
+        color = label.color
+        trainId = label.trainId
+        img_color[img == trainId] = color
+        
+    return img_color
+
+
+def decodeImgs(label_imgs):
     decode_imgs = []
     for label_img in label_imgs:
-        img_color = np.zeros((img_height, img_width, 3), dtype=np.uint8)
-        r = np.zeros_like(label_img).astype(np.uint8)
-        g = np.zeros_like(label_img).astype(np.uint8)
-        b = np.zeros_like(label_img).astype(np.uint8)
-        rgb = np.stack([r,g,b], axis=0)
-        
-        for label in Mapillary_labels:
-            color = label.color
-            trainId = label.trainId
-            img_color[label_img == trainId] = color
+        img_color = draw_label(label_img)
         
         decode_imgs.append(torch.from_numpy(np.transpose(img_color, (2, 0, 1))))
         

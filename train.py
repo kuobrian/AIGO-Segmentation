@@ -19,7 +19,7 @@ import parameters  as params
 from dataset import MakeTrainValidSet, MapillaryDataset
 from model.backbone_model import DeeplabV3
 from lr_scheduler import Poly
-from utils import add_weight_decay, Evaluator, draw_label, denormalize
+from utils import add_weight_decay, Evaluator, decodeImgs, denormalize
 from utils_losses import DiceLoss, CE_DiceLoss, CrossEntropyLoss2d, LovaszSoftmax
 
 def PlotNumberPic(values, v_name, filepath, plotpath, xlabel="epoch", ylabel="loss"):
@@ -279,10 +279,10 @@ if __name__ == "__main__":
                     grid_image = make_grid(denormalize(imgs[:3].data.cpu()), 3)
                     writer.add_image('Image', grid_image, epoch)
                     
-                    grid_image = make_grid(draw_label(label_imgs[:3]), 3)
+                    grid_image = make_grid(decodeImgs(label_imgs[:3]), 3)
                     writer.add_image('Label', grid_image, epoch)
 
-                    grid_image = make_grid(draw_label(outputs[:3]), 3)
+                    grid_image = make_grid(decodeImgs(outputs[:3]), 3)
                     writer.add_image('Prediction', grid_image, epoch)
                 break
 
