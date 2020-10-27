@@ -16,10 +16,12 @@ import parameters  as params
 
 from dataset import MakeTrainValidSet, MapillaryDataset
 from model.model import DeeplabV3
-# from utils import add_weight_decay
-# from undistort import distort_augmenter
+from lr_scheduler import Poly
+from utils import add_weight_decay, Evaluator
 from utils_losses import DiceLoss, CE_DiceLoss, CrossEntropyLoss2d, LovaszSoftmax
-# from lr_scheduler import Poly
+
+
+# from undistort import distort_augmenter
 # from torchvision.utils import make_grid
 # from utils_metrics import Evaluator
 
@@ -92,8 +94,7 @@ if __name__ == "__main__":
         mode == 6: ResNet152_OS16()
     '''
 
-    model_id = "FE4_CED_SGD"
-    model = DeeplabV3(model_id, "./", seg_cls, FeatureExtractor=4)
+    model = DeeplabV3(params.model_id, "./", seg_cls, FeatureExtractor=4)
     model.to(device)
 
     class_weights = None
@@ -118,14 +119,14 @@ if __name__ == "__main__":
 
     trainable_params = filter(lambda p:p.requires_grad, model.parameters())
 
-    params = {
+    paramsOptim = {
         "lr": params.learning_rate,
         "momentum": params.momentum,
         "nesterov": params.nesterov,
     }
 
     # optimizer = torch.optim.Adam(params=trainable_params, **params)
-    ptimizer = torch.optim.SGD(params=trainable_params, **params)
+    optimizer = torch.optim.SGD(params=trainable_params, **paramsOptim)
 
     # criterion = CrossEntropyLoss2d(weight=class_weights, reduction="mean")
     # criterion = nn.CrossEntropyLoss(weight=class_weights)
@@ -133,4 +134,60 @@ if __name__ == "__main__":
     criterion = CE_DiceLoss(reduction="mean", weight=class_weights)
     # criterion = LovaszSoftmax()
 
+    num_epochs = init_epoch + params.epochs
+    iters_per_epoch = len(train_loader)
 
+    lr_scheduler = Poly(optimizer, num_epochs, iters_per_epoch)
+    
+    ''' Plot lr schedule '''
+    # y = []
+    # for epoch in range(init_epoch, num_epochs):
+    #     lr_scheduler.step()
+    #     print('Epoch-{0} lr: {1}'.format(epoch, optimizer.param_groups[0]['lr']))
+    #     y.append(optimizer.param_groups[0]['lr'])
+    # plt.plot(y, '.-', label='LambdaLR')
+    # plt.xlabel('epoch')
+    # plt.ylabel('LR')
+    # plt.tight_layout()
+    # plt.savefig('./LR.png', dpi=300)
+
+    epoch_losses_train = []
+    epoch_losses_val = []
+    mertics_val_miou = []
+    mertics_val_pixAcc = []
+    mertics_val_FWIoU = []
+
+    if isLoad and os.path.exists("%s/epoch_losses_val.pkl" % model_dir) and\
+        os.path.exists("%s/epoch_losses_train.pkl" % model_dir):
+
+        with open("%s/epoch_losses_train.pkl" % model_dir, "rb") as file:
+            epoch_losses_train = list(np.array(pickle.load(file)))
+
+        with open("%s/epoch_losses_val.pkl" % model_dir, "rb") as file:
+            epoch_losses_val = list(np.array(pickle.load(file)))
+
+        with open("%s/epoch_miou_val.pkl" % model_dir, "rb") as file:
+            mertics_val_miou = list(np.array(pickle.load(file)))
+
+        with open("%s/epoch_FWIoU_val.pkl" % model_dir, "rb") as file:
+            mertics_val_FWIoU = list(np.array(pickle.load(file)))
+        
+        with open("%s/epoch_pixAcc_val.pkl" % model_dir, "rb") as file:
+            mertics_val_pixAcc = list(np.array(pickle.load(file)))
+
+        print("Load Prev train Loss: ", len(epoch_losses_train))
+        print("Load Prev val Loss: ", len(epoch_losses_val))
+        print("Load Prev miou Loss: ", len(mertics_val_miou))
+        print("Load Prev pixAcc Loss: ", len(mertics_val_pixAcc))
+
+
+    min_train_loss = np.inf
+    min_valid_loss = np.inf
+    max_fwiou = -np.inf
+    max_pixacc = -np.inf
+
+    tensorboard_path = os.path.join(model_dir, "runs")
+    if not os.path.exists(tensorboard_path):
+        os.makedirs(tensorboard_path)
+
+    evaluator = Evaluator(seg_cls)
