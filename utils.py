@@ -12,8 +12,38 @@ def draw_label(img):
     for label in Mapillary_labels:
         obj_isinstance = label.hasInstanceignoreInEval
         color = label.color
+        name = label.name
         trainId = label.trainId
-        img_color[img == trainId] = color
+
+        if obj_isinstance:
+            img_color[img == trainId] = color
+        
+        ''' Road class '''
+        if name in ['Curb', 'Road', 'Lane Marking - Crosswalk',
+                    "Lane Marking - General", 'Sidewalk',  'Rail Track',
+                    'Bike Lane', 'Pedestrian Area', 'Crosswalk - Plain', 'Parking', 'Guard Rail', 'Barrier']:
+            img_color[img == trainId] = [128, 64, 128]
+        
+        ''' Building class '''
+        if name in ['Wall', 'Building']:
+            img_color[img == trainId] = [70, 70, 70]
+
+        if name in ['Vegetation', 'Terrain']:
+            img_color[img == trainId] = [107, 142, 35]
+        
+        if name in ['Sky', 'Fence']:
+            img_color[img == trainId] = color
+        
+        # unique_img = np.unique(img)
+        # if not obj_isinstance and name not in ['Curb', 'Road', 'Lane Marking - Crosswalk',
+        #             "Lane Marking - General", 'Sidewalk',  'Rail Track',
+        #             'Bike Lane', 'Pedestrian Area', 'Crosswalk - Plain', 'Wall', 'Building',
+        #               'Vegetation', 'Sky', 'Fence', 'Terrain', 'Parking', 'Guard Rail', 'Barrier']:
+        #     img_color[img == trainId] = color
+        #     if trainId in unique_img:
+        #         print("******", name)
+            
+
         
     return img_color
 

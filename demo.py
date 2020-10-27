@@ -81,6 +81,12 @@ def DemoVideo(model, video_path, img_tfs, source='video', device='cuda'):
             pred_raw = model(transform_img)
             pred_raw = pred_raw.data.cpu().numpy()
             pred_label_imgs = np.argmax(pred_raw, axis=1)
+
+            for idx, label in enumerate(Mapillary_labels):
+                if label.id in np.unique(pred_label_imgs):
+                    print(label.trainId, " => ", label.name)
+            print("====================")
+
             pred_label_imgs = pred_label_imgs.astype(np.uint8)[0]
             pred_label_img_color = draw_label(pred_label_imgs)
             resize_vis = cv2.resize(img, (params.img_w, params.img_h))
@@ -132,8 +138,16 @@ if __name__ == "__main__":
     model.eval()
 
     # DemoSingleImage(model, img_path='./testimg.jpg', img_tfs=img_tfs)
+    DemoVideo(model, './cityscape_stuttgart_01.avi', img_tfs=img_tfs, source='video', device='cuda')
     
-    DemoVideo(model, './test.avi', img_tfs=img_tfs, source='camera', device='cuda')
+
+    # cityscapes_root = "D://data/cityscapes/leftImg8bit/demoVideo/stuttgart_01"
+    # out = cv2.VideoWriter('./cityscape_stuttgart_01.avi', cv2.VideoWriter_fourcc(*"MJPG"), 20, (2048, 1024))
+
+    # for img_name in os.listdir(cityscapes_root):
+    #     img = cv2.imread(os.path.join(cityscapes_root, img_name), -1)
+    #     out.write(img)
+
     
 
 
