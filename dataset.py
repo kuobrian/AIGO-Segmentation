@@ -10,8 +10,6 @@ from torchvision import transforms
 from imgaug import augmenters as iaa
 from imgaug.augmentables.segmaps import SegmentationMapsOnImage
 from sklearn.model_selection import train_test_split
-
-
 from collections import namedtuple
 
 Label = namedtuple('Label', [

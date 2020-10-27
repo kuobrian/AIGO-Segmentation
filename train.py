@@ -12,18 +12,27 @@ from torchvision import transforms
 from torch.utils.data import DataLoader
 from imgaug import augmenters as iaa
 from tensorboardX import SummaryWriter
+from torchvision.utils import make_grid
+
 import parameters  as params
 
 from dataset import MakeTrainValidSet, MapillaryDataset
-from model.model import DeeplabV3
+from model.backbone_model import DeeplabV3
 from lr_scheduler import Poly
-from utils import add_weight_decay, Evaluator
+from utils import add_weight_decay, Evaluator, draw_label, denormalize
 from utils_losses import DiceLoss, CE_DiceLoss, CrossEntropyLoss2d, LovaszSoftmax
 
-
-# from undistort import distort_augmenter
-# from torchvision.utils import make_grid
-# from utils_metrics import Evaluator
+def PlotNumberPic(values, v_name, filepath, plotpath, xlabel="epoch", ylabel="loss"):
+    with open(filepath, "wb") as file:
+        pickle.dump(values, file)
+    plt.figure(1)
+    plt.plot(values, "k^")
+    plt.plot(values, "k")
+    plt.title(v_name)
+    plt.ylabel(ylabel)
+    plt.xlabel(xlabel)
+    plt.savefig(plotpath)
+    plt.close(1)
 
 def transformsFunction():
     train_seq = iaa.Sequential([iaa.size.Resize({"height": params.img_h, "width": params.img_w}, interpolation='nearest'),
@@ -45,7 +54,6 @@ def transformsFunction():
 def worker_init_fn(worker_id):
     imgaug.seed(np.random.get_state()[1][0] + worker_id)
 
-
 if __name__ == "__main__":
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -64,6 +72,8 @@ if __name__ == "__main__":
     train_dataset = MapillaryDataset(trainSet, seq=train_seq)
     val_dataset = MapillaryDataset(validSet, seq=valid_seq)
 
+
+
     num_train_batches = int(len(train_dataset)/params.batch_size)
     num_val_batches = int(len(val_dataset)/params.batch_size)
 
@@ -81,6 +91,9 @@ if __name__ == "__main__":
                             shuffle     = False,
                             num_workers = 0)
     
+
+
+
     seg_cls = train_dataset.get_num_cls()
     print("num_classes: ", seg_cls)
 
@@ -125,7 +138,8 @@ if __name__ == "__main__":
         "nesterov": params.nesterov,
     }
 
-    # optimizer = torch.optim.Adam(params=trainable_params, **params)
+
+    # optimizer = torch.optim.Adam(params=trainable_params, **paramsOptim)
     optimizer = torch.optim.SGD(params=trainable_params, **paramsOptim)
 
     # criterion = CrossEntropyLoss2d(weight=class_weights, reduction="mean")
@@ -138,6 +152,7 @@ if __name__ == "__main__":
     iters_per_epoch = len(train_loader)
 
     lr_scheduler = Poly(optimizer, num_epochs, iters_per_epoch)
+    
     
     ''' Plot lr schedule '''
     # y = []
@@ -191,3 +206,181 @@ if __name__ == "__main__":
         os.makedirs(tensorboard_path)
 
     evaluator = Evaluator(seg_cls)
+
+    writer = SummaryWriter(tensorboard_path)
+
+    for epoch in range(init_epoch, num_epochs):
+        print ("epoch: %d/%d" % (epoch+1, num_epochs))
+        model.train() # (set in training mode, this affects BatchNorm and dropout)
+        batch_losses = []
+        # assert(0)
+
+
+        ############################################################################
+        # train:
+        ############################################################################
+        
+        for step, (imgs, label_imgs) in enumerate(train_loader):
+            
+
+            imgs = imgs.cuda() # (shape: (batch_size, 3, img_h, img_w))
+            label_imgs = label_imgs.type(torch.LongTensor).cuda() # (shape: (batch_size, img_h, img_w))
+            outputs = model(imgs)
+
+            loss = criterion(outputs, label_imgs)
+            loss_value = loss.data.cpu().numpy()
+            batch_losses.append(loss_value)
+
+            optimizer.zero_grad() # (reset gradients)
+            loss.backward() # (compute gradients)
+            optimizer.step() # (perform optimization step)
+            break
+
+        lr_scheduler.step()
+
+        epoch_losses_train.append(np.mean(batch_losses))
+        TRAINLOSS_str = "train loss: {:.4f}".format(np.mean(batch_losses))
+        writer.add_scalar('train/loss_epoch', np.mean(batch_losses), epoch)
+
+        PlotNumberPic(epoch_losses_train,
+                    v_name = "train loss per epoch",
+                    filepath = "%s/epoch_losses_train.pkl" % model_dir,
+                    plotpath = "%s/epoch_losses_train.png" % model_dir,
+                    xlabel="epoch",
+                    ylabel="loss")
+
+        ############################################################################
+        # val:
+        ############################################################################
+
+        model.eval() # (set in evaluation mode, this affects BatchNorm and dropout)
+        batch_losses = []
+        mertics_miou = []
+        mertics_pixAcc = []
+
+        for step, (imgs, label_imgs) in enumerate(val_loader):
+            with torch.no_grad(): 
+                imgs = imgs.cuda() # (shape: (batch_size, 3, img_h, img_w))
+                label_imgs = label_imgs.type(torch.LongTensor).cuda() # (shape: (batch_size, img_h, img_w))
+
+                outputs = model(imgs) # (shape: (batch_size, num_classes, img_h, img_w))
+
+                # compute the loss:
+                loss = criterion(outputs, label_imgs)
+                loss_value = loss.data.cpu().numpy()
+                batch_losses.append(loss_value)
+                
+                outputs = outputs.data.cpu().numpy()
+                outputs = np.argmax(outputs, axis=1)
+                label_imgs = label_imgs.data.cpu().numpy()
+                evaluator.add_batch(label_imgs, outputs)
+
+                if step == 0:
+                    grid_image = make_grid(denormalize(imgs[:3].data.cpu()), 3)
+                    writer.add_image('Image', grid_image, epoch)
+                    
+                    grid_image = make_grid(draw_label(label_imgs[:3]), 3)
+                    writer.add_image('Label', grid_image, epoch)
+
+                    grid_image = make_grid(draw_label(outputs[:3]), 3)
+                    writer.add_image('Prediction', grid_image, epoch)
+                break
+
+        Acc = evaluator.Pixel_Accuracy()
+        Acc_class = evaluator.Pixel_Accuracy_Class()
+        mIoU = evaluator.Mean_Intersection_over_Union()
+        FWIoU = evaluator.Frequency_Weighted_Intersection_over_Union()
+
+        
+        mertics_val_miou.append(mIoU)
+        mertics_val_pixAcc.append(Acc)
+        mertics_val_FWIoU.append(FWIoU)
+        writer.add_scalar('val/Acc_class', Acc_class, epoch)
+
+        
+        MIOU_str = "miou: {:.4f}".format(mIoU)
+        writer.add_scalar('val/mIoU', mIoU, epoch)
+        PlotNumberPic(mertics_val_miou,
+                    v_name = "miou per epoch",
+                    filepath = "%s/epoch_miou_val.pkl" % model_dir,
+                    plotpath = "%s/epoch_miou_val.png" % model_dir,
+                    xlabel="epoch",
+                    ylabel="miou")
+
+        FWIoU_str = "FWIoU: {:.4f}".format(FWIoU)
+        writer.add_scalar('val/fwIoU', FWIoU, epoch)
+        PlotNumberPic(mertics_val_miou,
+                    v_name = "FWIoU per epoch",
+                    filepath = "%s/epoch_FWIoU_val.pkl" % model_dir,
+                    plotpath = "%s/epoch_FWIoU_val.png" % model_dir,
+                    xlabel="epoch",
+                    ylabel="FWIoU")
+
+        PIXACC_str = "pixAcc: {:.4f}".format(Acc)
+        writer.add_scalar('val/Acc', Acc, epoch)
+        PlotNumberPic(mertics_val_pixAcc,
+                    v_name = "pixAcc per epoch",
+                    filepath = "%s/epoch_pixAcc_val.pkl" % model_dir,
+                    plotpath = "%s/epoch_pixAcc_val.png" % model_dir,
+                    xlabel="epoch",
+                    ylabel="pixAcc")
+
+        epoch_loss = np.mean(batch_losses)
+        epoch_losses_val.append(epoch_loss)
+        VALIDLOSS_str = "val loss: {:.3f}".format(epoch_loss)
+        writer.add_scalar('val/loss_epoch', epoch_loss, epoch)
+        PlotNumberPic(epoch_losses_val,
+                    v_name = "val per epoch",
+                    filepath = "%s/epoch_losses_val.pkl" % model_dir,
+                    plotpath = "%s/epoch_losses_val.png" % model_dir,
+                    xlabel="epoch",
+                    ylabel="loss")
+
+        ############################################################################
+        # save the model weights to disk
+        ############################################################################            
+        
+
+        print("\t" + TRAINLOSS_str + " , " + VALIDLOSS_str + " , "\
+                + MIOU_str + " , " + FWIoU_str + ' , ' + \
+                PIXACC_str + " , lr:{:.8f}".format(optimizer.param_groups[0]['lr']))
+        
+        checkpoint_path = ckpt_path + "/model_" + params.model_id +"_epoch_" + str(epoch+1) + ".pth"
+        torch.save({ 'epoch': epoch, 
+                    'model_state_dict': model.module.state_dict() if hasattr(model, 'module') else model.state_dict(),
+                    'lr': optimizer.param_groups[0]['lr']
+                    }, ckpt_path + "/last.pth" )
+        
+        if min_train_loss > epoch_losses_train[-1]:
+            min_train_loss = epoch_losses_train[-1]
+            torch.save({ 'epoch': epoch, 
+                    'model_state_dict': model.module.state_dict() if hasattr(model, 'module') else model.state_dict(),
+                    'lr': optimizer.param_groups[0]['lr'],
+                    "value": min_train_loss
+                    }, ckpt_path + "/best_train.pth" )
+        
+        if min_valid_loss > epoch_losses_val[-1]:
+            min_train_loss = epoch_losses_val[-1]
+            torch.save({ 'epoch': epoch, 
+                    'model_state_dict': model.module.state_dict() if hasattr(model, 'module') else model.state_dict(),
+                    'lr': optimizer.param_groups[0]['lr'],
+                    "value": min_valid_loss
+                    }, ckpt_path + "/best_valid.pth" )
+
+        if max_fwiou < FWIoU:
+            max_fwiou = FWIoU
+            torch.save({ 'epoch': epoch, 
+                    'model_state_dict': model.module.state_dict() if hasattr(model, 'module') else model.state_dict(),
+                    'lr': optimizer.param_groups[0]['lr'],
+                    "value": max_fwiou
+                    }, ckpt_path + "/best_fwiou.pth" )
+        
+        if max_pixacc < Acc:
+            max_pixacc = Acc
+            torch.save({ 'epoch': epoch, 
+                    'model_state_dict': model.module.state_dict() if hasattr(model, 'module') else model.state_dict(),
+                    'lr': optimizer.param_groups[0]['lr'],
+                    "value": max_pixacc
+                    }, ckpt_path + "/best_pixacc.pth" )
+
+

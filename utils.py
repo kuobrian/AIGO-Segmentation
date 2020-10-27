@@ -2,7 +2,36 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from dataset import Mapillary_labels
 
+def draw_label(label_imgs):
+    img_height, img_width = label_imgs.shape[1], label_imgs.shape[2]
+
+    decode_imgs = []
+    for label_img in label_imgs:
+        img_color = np.zeros((img_height, img_width, 3), dtype=np.uint8)
+        r = np.zeros_like(label_img).astype(np.uint8)
+        g = np.zeros_like(label_img).astype(np.uint8)
+        b = np.zeros_like(label_img).astype(np.uint8)
+        rgb = np.stack([r,g,b], axis=0)
+        
+        for label in Mapillary_labels:
+            color = label.color
+            trainId = label.trainId
+            img_color[label_img == trainId] = color
+        
+        decode_imgs.append(torch.from_numpy(np.transpose(img_color, (2, 0, 1))))
+        
+    return decode_imgs
+
+
+def denormalize(images, mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)):
+    for i in range(images.shape[1]):
+        images[:, i, :, :] = images[:, i, :, :] * std[i] + mean[i]       
+    
+    images = images[:, [2, 1, 0], :, :]
+    images = images * 255
+    return images.byte()
 
 def add_weight_decay(net, l2_value, skip_list=()):
     # https://raberrytv.wordpress.com/2017/10/29/pytorch-weight-decay-made-easy/
