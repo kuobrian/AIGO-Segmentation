@@ -8,19 +8,15 @@ import pickle
 import matplotlib
 import matplotlib.pyplot as plt
 import torch.nn as nn
-from torchvision import transforms
 from torch.utils.data import DataLoader
 from imgaug import augmenters as iaa
-from tensorboardX import SummaryWriter
-from torchvision.utils import make_grid
 
 import parameters  as params
 
 from dataset import MakeTrainValidSet, MapillaryDataset
 from model.backbone_model import DeeplabV3
-from lr_scheduler import Poly
-from utils import add_weight_decay, Evaluator, draw_label, denormalize
-from utils_losses import DiceLoss, CE_DiceLoss, CrossEntropyLoss2d, LovaszSoftmax
+from utils import Evaluator
+
 
 def GetTrainedModel(ckpt_path = None, num_cls=None, mode=1):
     ckpt = torch.load(ckpt_path)
