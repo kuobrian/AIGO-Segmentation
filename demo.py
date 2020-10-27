@@ -120,7 +120,6 @@ if __name__ == "__main__":
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     seg_cls = 66
 
-    folder = "DeepLab_m4_M_CED_SGD"
 
     folder = "FE4_CED_SGD"
     folder = params.model_id
@@ -138,15 +137,7 @@ if __name__ == "__main__":
     model.eval()
 
     # DemoSingleImage(model, img_path='./testimg.jpg', img_tfs=img_tfs)
-    DemoVideo(model, './cityscape_stuttgart_01.avi', img_tfs=img_tfs, source='video', device='cuda')
-    
-
-    # cityscapes_root = "D://data/cityscapes/leftImg8bit/demoVideo/stuttgart_01"
-    # out = cv2.VideoWriter('./cityscape_stuttgart_01.avi', cv2.VideoWriter_fourcc(*"MJPG"), 20, (2048, 1024))
-
-    # for img_name in os.listdir(cityscapes_root):
-    #     img = cv2.imread(os.path.join(cityscapes_root, img_name), -1)
-    #     out.write(img)
+    DemoVideo(model, './videos/cityscape_stuttgart_01.avi', img_tfs=img_tfs, source='video', device='cuda')
 
     
 

@@ -18,3 +18,14 @@ $ python demo.py
 
 ##### Download our weights [googledrive](https://drive.google.com/drive/folders/1fXa_6e5fpmb9nzMBws_xMX5HY_rY9WVX?usp=sharing)
 
+download weights and change code in `demo.py` script
+
+```shell
+$ folder = params.model_id
+$ ckpt_path = './logs/{}/checkpoints/best_valid.pth'.format(folder)
+
+```
+
+##### Test Video  [Video folder](https://drive.google.com/drive/folders/1ErgRlsQvF38M0M4OW8AzdT260FACtuMG?usp=sharing)
+
+download video and put it in video folder
