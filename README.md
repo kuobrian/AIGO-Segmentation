@@ -16,5 +16,5 @@ The easiest way to get started with inference is to clone this repository and us
 $ python demo.py
 ```
 
-##### Download our weights [googledrive](https://drive.google.com/file/d/1ds_eM0XXK-unyRj7uNhzMZj88_jDmi62/view?usp=sharing)
+##### Download our weights [googledrive](https://drive.google.com/drive/folders/1fXa_6e5fpmb9nzMBws_xMX5HY_rY9WVX?usp=sharing)
 
