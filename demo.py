@@ -137,9 +137,14 @@ if __name__ == "__main__":
     model.eval()
 
     # DemoSingleImage(model, img_path='./testimg.jpg', img_tfs=img_tfs)
-    DemoVideo(model, './videos/cityscape_stuttgart_01.avi', img_tfs=img_tfs, source='video', device='cuda')
+    # DemoVideo(model, './videos/cityscape_stuttgart_01.avi', img_tfs=img_tfs, source='video', device='cuda')
 
     
 
+    cityscapes_root = "D://data/cityscapes/leftImg8bit/demoVideo/stuttgart_00"
+    out = cv2.VideoWriter('./videos/cityscape_stuttgart_00.avi', cv2.VideoWriter_fourcc(*"MJPG"), 20, (2048, 1024))
 
+    for img_name in os.listdir(cityscapes_root):
+        img = cv2.imread(os.path.join(cityscapes_root, img_name), -1)
+        out.write(img)
 
