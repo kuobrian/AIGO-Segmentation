@@ -32,3 +32,8 @@ download video and put it in video folder
 
 
 ## Training Process
+### ![train loss](https://github.com/kuobrian/AIGO-Segmentation/blob/main/images/epoch_losses_train.png)
+
+### ![validate loss](https://github.com/kuobrian/AIGO-Segmentation/blob/main/images/epoch_losses_val.png)
+
+### ![miou](https://github.com/kuobrian/AIGO-Segmentation/blob/main/images/epoch_miou_val.png)
