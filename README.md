@@ -29,3 +29,6 @@ $ ckpt_path = './logs/{}/checkpoints/best_valid.pth'.format(folder)
 ##### Test Video  [Video folder](https://drive.google.com/drive/folders/1ErgRlsQvF38M0M4OW8AzdT260FACtuMG?usp=sharing)
 
 download video and put it in video folder
+
+
+## Training Process
